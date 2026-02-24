@@ -31,23 +31,29 @@
 
     <script>
         const repo = "Sircatx/3282568_danmu";
+        // 这里的顺序改了：优先走实时源，最后走镜像站
         const mirrors = [
-            "https://fastly.jsdelivr.net/gh/",
-            "https://jsd.cdn.zzko.cn/gh/",
-            "https://gcore.jsdelivr.net/gh/"
+            "https://raw.githubusercontent.com/", // 实时源
+            "https://jsd.cdn.zzko.cn/gh/",         // 镜像1
+            "https://fastly.jsdelivr.net/gh/"     // 镜像2
         ];
         
         const content = document.getElementById('content');
         const searchInput = document.getElementById('search');
         let homeData = [], currentFiles = [], mode = 'home', currentMonth = '';
 
-        // 核心：带时间戳的抓取，防止缓存旧文件
         async function smartFetch(path) {
             const timestamp = new Date().getTime(); 
-            for (let mirror of mirrors) {
+            // 1. 尝试 GitHub 官方实时源 (Raw)
+            try {
+                const rawRes = await fetch(`https://raw.githubusercontent.com/${repo}/main/${path}?t=${timestamp}`);
+                if (rawRes.ok) return await rawRes.text();
+            } catch(e) {}
+
+            // 2. 如果实时源打不开（墙了），再遍历镜像站
+            for (let i = 1; i < mirrors.length; i++) {
                 try {
-                    // 在 URL 后面加上 ?t=xxx 强制镜像站刷新
-                    const res = await fetch(`${mirror}${repo}@main/${path}?t=${timestamp}`);
+                    const res = await fetch(`${mirrors[i]}${repo}@main/${path}?t=${timestamp}`);
                     if (res.ok) return await res.text();
                 } catch (e) { continue; }
             }
@@ -56,15 +62,15 @@
 
         async function loadHome() {
             mode = 'home';
-            content.innerHTML = '<div class="loading">✨ 正在连接多线机房...</div>';
+            content.innerHTML = '<div class="loading">✨ 正在同步最新记录...</div>';
             try {
-                // API 列表也加随机数防止列表不更新
+                // 列表获取强制不缓存
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/?t=${new Date().getTime()}`);
                 if(!res.ok) throw new Error();
                 homeData = (await res.json()).filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
                 renderHome(homeData);
             } catch (e) { 
-                content.innerHTML = '<div class="loading">⚠️ 访问频繁或网络波动<br><small>请稍等1分钟后刷新页面</small></div>'; 
+                content.innerHTML = '<div class="loading">⚠️ 线路繁忙<br><small>可能是 GitHub 限制了访问频率，请稍后再试</small></div>'; 
             }
         }
 
@@ -85,7 +91,7 @@
 
         async function loadMonth(m, searchKey = '') {
             mode = 'files'; currentMonth = m;
-            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">同步最新记录中...</div>`;
+            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">读取中...</div>`;
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}?t=${new Date().getTime()}`);
                 currentFiles = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
@@ -97,25 +103,25 @@
             let html = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>`;
             files.forEach(f => {
                 const timestamp = new Date().getTime();
-                const fastUrl = `${mirrors[0]}${repo}@main/${currentMonth}/${f.name}?t=${timestamp}`;
+                // 下载链接依然提供一个镜像站的，防止 Raw 被墙
+                const downUrl = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${currentMonth}/${f.name}?t=${timestamp}`;
                 html += `
                     <div class="card" onclick="openFile('${currentMonth}/${f.name}')">
                         <div class="card-icon">📄</div>
                         <div class="card-info"><span class="card-name">${f.name.replace('.txt','')}</span></div>
-                        <button class="btn-down-ui" onclick="event.stopPropagation(); forceDownload('${fastUrl}', '${f.name}')">下载</button>
+                        <button class="btn-down-ui" onclick="event.stopPropagation(); forceDownload('${downUrl}', '${f.name}')">下载</button>
                     </div>`;
             });
-            content.innerHTML = html || '<div class="loading">未找到该日期的文件</div>';
+            content.innerHTML = html || '<div class="loading">未找到文件</div>';
         }
 
         async function openFile(path) {
             const data = await smartFetch(path);
             if (data) {
                 const win = window.open("", "_blank");
-                // 优化查看页面的字体，让弹幕整齐一点
                 win.document.write("<html><body style='background:#1a1a1a;color:#ccc;padding:20px;'><pre style='word-wrap:break-word;white-space:pre-wrap;font-family:monospace;line-height:1.5;'>" + data + "</pre></body></html>");
             } else {
-                alert("新弹幕还没传送到镜像站，请先尝试点击下载按钮！");
+                alert("获取实时数据失败，可能是网络波动，请稍后再试！");
             }
         }
 
