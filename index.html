@@ -2,42 +2,59 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>弹幕归档查看器</title>
+    <title>弹幕归档智能查看器</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; background: #f4f4f9; }
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; background: #f4f4f9; max-width: 800px; margin: 0 auto; }
         h1 { color: #333; border-bottom: 2px solid #0070f3; padding-bottom: 10px; }
-        .file-list { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 20px; }
-        a { color: #0070f3; text-decoration: none; font-weight: bold; }
-        a:hover { text-decoration: underline; }
-        .tip { margin-top: 20px; font-size: 0.9em; color: #666; }
+        .file-list { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); padding: 20px; list-style: none; }
+        li { padding: 8px 0; border-bottom: 1px solid #eee; }
+        li:last-child { border-bottom: none; }
+        a { color: #0070f3; text-decoration: none; font-weight: bold; display: block; }
+        a:hover { background: #f0f7ff; }
+        .back-btn { margin-bottom: 15px; display: inline-block; color: #666; }
     </style>
 </head>
 <body>
-    <h1>📂 弹幕归档仓库</h1>
-    <div class="file-list" id="content">
-        <p>正在加载归档列表...</p>
-    </div>
-    <p class="tip">提示：点击文件夹可进入查看具体日期的弹幕 TXT 文件。</p>
+    <div id="nav"></div>
+    <h1 id="title">📂 弹幕归档仓库</h1>
+    <ul class="file-list" id="content">加载中...</ul>
 
     <script>
-        // 自动获取当前仓库的文件列表
+        const repo = "Sircatx/3282568_danmu";
+        // 自动识别当前是在哪个文件夹
+        const path = window.location.pathname.replace(/^\/|\/$/g, '');
+        
         async function loadFiles() {
-            const repo = "Sircatx/3282568_danmu";
-            const response = await fetch(`https://api.github.com/repos/${repo}/contents/`);
-            const data = await response.json();
             const contentDiv = document.getElementById('content');
+            const title = document.getElementById('title');
+            const nav = document.getElementById('nav');
             
-            let html = '<ul>';
-            data.forEach(file => {
-                if (file.type === 'dir') {
-                    html += `<li>📁 <a href="./${file.name}/">${file.name}/</a></li>`;
-                } else if (file.name.endsWith('.txt')) {
-                    html += `<li>📄 <a href="./${file.name}">${file.name}</a></li>`;
-                }
-            });
-            html += '</ul>';
-            contentDiv.innerHTML = html;
+            if (path) {
+                nav.innerHTML = '<a href="/" class="back-btn">⬅ 返回根目录</a>';
+                title.innerText = `📁 当前文件夹: ${path}`;
+            }
+
+            try {
+                const response = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`);
+                const data = await response.json();
+                
+                let html = '';
+                data.forEach(file => {
+                    // 如果是文件夹，点击进入
+                    if (file.type === 'dir') {
+                        html += `<li>📁 <a href="/${file.name}/">${file.name}/</a></li>`;
+                    } 
+                    // 如果是 txt 文件，直接打开原始链接（秒开）
+                    else if (file.name.endsWith('.txt')) {
+                        const rawUrl = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${path}/${file.name}`;
+                        html += `<li>📄 <a href="${rawUrl}" target="_blank">${file.name} (点此加速查看)</a></li>`;
+                    }
+                });
+                contentDiv.innerHTML = html || '<li>这里空空如也...</li>';
+            } catch (e) {
+                contentDiv.innerHTML = '<li>加载失败，请检查仓库权限或刷新重试。</li>';
+            }
         }
         loadFiles();
     </script>
