@@ -6,60 +6,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body { font-family: -apple-system, sans-serif; padding: 20px; background: #fdf2f5; display: flex; justify-content: center; }
-        .container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 25px rgba(255,105,180,0.15); width: 100%; max-width: 500px; }
-        h1 { color: #ff69b4; font-size: 1.4rem; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #ffecf2; padding-bottom: 15px; }
-        .list-group { list-style: none; padding: 0; margin: 0; }
-        .file-item { display: flex; align-items: center; padding: 14px; background: #fff; border: 1px solid #ffe4ed; border-radius: 12px; margin-bottom: 10px; text-decoration: none; color: #444; font-weight: 500; transition: all 0.2s; }
-        .file-item:hover { background: #fff0f5; border-color: #ff69b4; transform: translateY(-2px); }
-        .icon { font-size: 1.3rem; margin-right: 12px; }
-        .back-btn { display: inline-block; margin-bottom: 15px; color: #ff69b4; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
-        .loading { text-align: center; color: #ff69b4; padding: 30px; font-style: italic; }
+        .container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 25px rgba(255,105,180,0.15); width: 100%; max-width: 500px; text-align: center; }
+        h1 { color: #ff69b4; font-size: 1.4rem; margin-bottom: 20px; border-bottom: 2px solid #ffecf2; padding-bottom: 15px; }
+        .btn { display: block; background: #ff69b4; color: white; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: bold; margin-bottom: 15px; transition: all 0.2s; }
+        .btn:hover { background: #ff85c0; transform: scale(1.02); }
+        .hint { font-size: 0.85rem; color: #999; margin-top: 15px; line-height: 1.5; }
+        #file-frame { width: 100%; height: 500px; border: 1px solid #ffe4ed; border-radius: 12px; display: none; margin-top: 15px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🌻 怪小葵的弹幕归档</h1>
-        <div id="app">
-            <div class="loading">正在加载少女的归档...</div>
+        
+        <a href="javascript:void(0)" onclick="openArchive()" class="btn" id="main-btn">📅 加载本月归档内容</a>
+        
+        <iframe id="file-frame"></iframe>
+
+        <div class="hint">
+            提示：点击按钮后将直接在页面内预览文件列表。<br>
+            内容通过国内 CDN 加速，无需跳转 GitHub。
         </div>
     </div>
 
     <script>
-        const repo = "Sircatx/3282568_danmu";
-        const app = document.getElementById('app');
-
-        // 智能获取内容，不跳转 GitHub
-        async function loadPath(path = "") {
-            app.innerHTML = '<div class="loading">正在努力读取中...</div>';
-            try {
-                // 使用 GitHub API 获取文件树
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`);
-                const data = await res.json();
-                
-                let html = path ? `<div class="back-btn" onclick="loadPath('')">⬅ 返回主目录</div>` : '';
-                html += '<div class="list-group">';
-                
-                data.forEach(item => {
-                    if (item.name === 'index.html' || item.name === 'vercel.json') return;
-                    
-                    if (item.type === 'dir') {
-                        // 文件夹：点击仍在 Vercel 内切换
-                        html += `<a href="javascript:void(0)" class="file-item" onclick="loadPath('${item.path}')"><span class="icon">📁</span>${item.name}</a>`;
-                    } else {
-                        // 文件：点击使用国内加速通道直接打开
-                        const proxyUrl = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${item.path}`;
-                        html += `<a href="${proxyUrl}" target="_blank" class="file-item"><span class="icon">📄</span>${item.name}</a>`;
-                    }
-                });
-                
-                html += '</div>';
-                app.innerHTML = html;
-            } catch (e) {
-                app.innerHTML = '<div class="loading">哎呀，加载失败了，请刷新重试~</div>';
-            }
+        function openArchive() {
+            const now = new Date();
+            const folder = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const frame = document.getElementById('file-frame');
+            const btn = document.getElementById('main-btn');
+            
+            // 使用特定的加速镜像查看目录，这个镜像在 Vercel 内预览效果最好
+            const archiveUrl = `https://fastly.jsdelivr.net/gh/Sircatx/3282568_danmu@main/${folder}/`;
+            
+            frame.src = archiveUrl;
+            frame.style.display = 'block';
+            btn.innerText = `🔄 正在刷新 ${folder} 记录...`;
         }
-
-        loadPath(""); // 初始化加载
     </script>
 </body>
 </html>
