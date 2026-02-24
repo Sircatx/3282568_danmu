@@ -9,33 +9,32 @@
         body { font-family: -apple-system, sans-serif; background: #fdf2f5; margin: 0; padding: 15px; }
         .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 24px; padding: 25px; box-shadow: 0 8px 30px rgba(255,105,180,0.1); min-height: 85vh; }
         
-        /* 1. 首页标题 */
+        /* 标题与搜索 */
         .header { text-align: center; color: var(--pink); font-size: 1.6rem; font-weight: 800; margin-bottom: 25px; }
         .search-input { width: 100%; padding: 14px; border: 2px solid var(--light-pink); border-radius: 14px; margin-bottom: 20px; box-sizing: border-box; outline: none; transition: 0.3s; font-size: 1rem; }
         .search-input:focus { border-color: var(--pink); background: var(--light-pink); }
 
-        /* 2. 年份分组样式 */
+        /* 年份分组标题 */
         .year-title { display: flex; align-items: center; margin: 25px 0 15px; color: var(--pink); font-weight: bold; font-size: 1.1rem; }
         .year-title::before { content: "📅"; margin-right: 8px; }
         .year-title::after { content: ""; flex: 1; height: 2px; background: linear-gradient(to right, var(--light-pink), transparent); margin-left: 10px; }
 
-        /* 3. 精致文件夹/文件卡片 */
+        /* 文件夹与文件卡片 */
         .card { display: flex; align-items: center; padding: 18px; background: #fff; border: 1px solid #f0f0f0; border-radius: 18px; cursor: pointer; transition: 0.2s; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
         .card:hover { border-color: var(--pink); transform: translateY(-3px); box-shadow: 0 6px 15px rgba(255,105,180,0.15); }
-        
-        .card-icon { font-size: 2rem; margin-right: 15px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
+        .card-icon { font-size: 1.8rem; margin-right: 15px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
         .card-info { flex-grow: 1; display: flex; flex-direction: column; }
         .card-name { font-weight: 700; font-size: 1.1rem; color: #444; }
-        .card-sub { font-size: 0.8rem; color: var(--gray); margin-top: 4px; }
 
-        /* 4. 右侧下载按钮 */
+        /* 下载按钮 */
         .btn-down { padding: 8px 15px; border-radius: 10px; background: var(--light-pink); color: var(--pink); text-decoration: none; font-size: 0.8rem; font-weight: bold; transition: 0.2s; }
         .btn-down:hover { background: var(--pink); color: white; }
 
+        /* 返回按钮 */
         .btn-back { background: #444; color: white; border: none; padding: 12px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; font-weight: bold; display: flex; align-items: center; }
         
-        /* 5. 弹幕阅读区域 */
-        #viewer { display: none; background: #262626; color: #e8e8e8; padding: 20px; border-radius: 18px; white-space: pre-wrap; margin-top: 20px; max-height: 55vh; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; border: 1px solid #444; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2); }
+        /* 阅读区域 */
+        #viewer { display: none; background: #262626; color: #e8e8e8; padding: 20px; border-radius: 18px; white-space: pre-wrap; margin-top: 20px; max-height: 55vh; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; border: 1px solid #444; }
         .loading { text-align: center; padding: 50px; color: var(--pink); font-style: italic; }
     </style>
 </head>
@@ -54,6 +53,7 @@
         const searchInput = document.getElementById('search');
         let homeData = [], currentFiles = [], mode = 'home';
 
+        // 初始加载：获取月份列表
         async function loadHome() {
             mode = 'home'; viewer.style.display = 'none';
             content.innerHTML = '<div class="loading">✨ 正在召唤归档列表...</div>';
@@ -65,6 +65,7 @@
             } catch (e) { content.innerHTML = '<div class="loading">读取失败，请检查网络。</div>'; }
         }
 
+        // 渲染首页年份分组
         function renderHome(list) {
             let html = '', lastYear = '';
             list.forEach(item => {
@@ -78,7 +79,6 @@
                         <div class="card-icon">📂</div>
                         <div class="card-info">
                             <span class="card-name">${item.name}</span>
-                            <span class="card-sub">点击进入查看本月弹幕</span>
                         </div>
                         <span style="color:#eee; font-size:1.5rem">➔</span>
                     </div>`;
@@ -86,9 +86,10 @@
             content.innerHTML = html;
         }
 
+        // 加载月份内的具体文件
         async function loadMonth(m) {
             mode = 'files';
-            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">正在整理 ${m} 的弹幕...</div>`;
+            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">正在整理 ${m} 记录中...</div>`;
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}`);
                 const data = await res.json();
@@ -97,39 +98,46 @@
             } catch (e) { content.innerHTML = '读取月份失败'; }
         }
 
+        // 渲染文件列表及下载保底逻辑
         function renderFiles(files, m) {
             let html = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>`;
             files.forEach(f => {
-                const rawUrl = `https://mirror.ghproxy.com/https://raw.githubusercontent.com/${repo}/main/${m}/${f.name}`;
+                const jsDelivrUrl = `https://fastly.jsdelivr.net/gh/${repo}@main/${m}/${f.name}`;
+                const githubUrl = `https://github.com/${repo}/raw/main/${m}/${f.name}`;
+                
                 html += `
                     <div class="card" onclick="viewFile('${m}/${f.name}')">
                         <div class="card-icon">📄</div>
                         <div class="card-info">
                             <span class="card-name">${f.name.replace('.txt','')}</span>
-                            <span class="card-sub">文本文件</span>
                         </div>
-                        <a href="${rawUrl}" download="${f.name}" class="btn-down" onclick="event.stopPropagation()">下载</a>
+                        <a href="${jsDelivrUrl}" 
+                           download="${f.name}" 
+                           class="btn-down" 
+                           onclick="event.stopPropagation(); setTimeout(()=> { window.location.href='${githubUrl}' }, 1500); return true;"
+                           title="优先加速下载，失败将自动跳转原站">下载</a>
                     </div>`;
             });
             content.innerHTML = html;
         }
 
+        // 查看文件内容
         async function viewFile(path) {
             viewer.style.display = 'block';
-            viewer.innerText = '✨ 正在全力读取内容...';
-            // 使用 CDN 加速节点
+            viewer.innerText = '✨ 正在通过专线读取内容...';
             const url = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${path}`;
             try {
                 const res = await fetch(url);
                 if (res.ok) {
                     viewer.innerText = await res.text();
-                    window.scrollTo(0, viewer.offsetTop);
+                    window.scrollTo({ top: viewer.offsetTop - 20, behavior: 'smooth' });
                 } else {
-                    viewer.innerText = "内容读取暂不可用，请稍后再试。";
+                    viewer.innerText = "读取失败，请尝试点击右侧下载按钮查看。";
                 }
             } catch (e) { viewer.innerText = "网络异常，请刷新页面。"; }
         }
 
+        // 搜索功能
         function onSearch() {
             const k = searchInput.value.toLowerCase();
             if (mode === 'home') renderHome(homeData.filter(i => i.name.includes(k)));
