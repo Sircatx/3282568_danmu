@@ -5,36 +5,61 @@
     <title>怪小葵的弹幕归档</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f9f9f9; display: flex; justify-content: center; }
-        .container { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 450px; text-align: center; }
-        h1 { color: #ff69b4; font-size: 1.5rem; margin-bottom: 20px; border-bottom: 2px dashed #ffd1dc; padding-bottom: 15px; }
-        .btn { display: block; background: #ff69b4; color: white; padding: 15px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-bottom: 15px; transition: transform 0.2s; }
-        .btn:hover { transform: scale(1.02); background: #ff85c0; }
-        .hint { font-size: 0.85rem; color: #999; margin-top: 20px; line-height: 1.5; }
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: #fdf2f5; display: flex; justify-content: center; }
+        .container { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 25px rgba(255,105,180,0.15); width: 100%; max-width: 500px; }
+        h1 { color: #ff69b4; font-size: 1.4rem; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #ffecf2; padding-bottom: 15px; }
+        .list-group { list-style: none; padding: 0; margin: 0; }
+        .file-item { display: flex; align-items: center; padding: 14px; background: #fff; border: 1px solid #ffe4ed; border-radius: 12px; margin-bottom: 10px; text-decoration: none; color: #444; font-weight: 500; transition: all 0.2s; }
+        .file-item:hover { background: #fff0f5; border-color: #ff69b4; transform: translateY(-2px); }
+        .icon { font-size: 1.3rem; margin-right: 12px; }
+        .back-btn { display: inline-block; margin-bottom: 15px; color: #ff69b4; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
+        .loading { text-align: center; color: #ff69b4; padding: 30px; font-style: italic; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🌻 怪小葵的弹幕归档</h1>
-        
-        <a href="#" id="dynamic-link" class="btn">🚀 进入本月归档目录</a>
-        
-        <div class="hint">
-            系统会自动识别当前月份并跳转。<br>
-            若本月文件夹尚未生成，请手动返回根目录查看。
+        <div id="app">
+            <div class="loading">正在加载少女的归档...</div>
         </div>
     </div>
 
     <script>
-        // 智能获取当前年月并生成 GitHub 路径
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const folderName = `${year}-${month}`;
-        
-        // 修改跳转链接
-        document.getElementById('dynamic-link').href = `https://github.com/Sircatx/3282568_danmu/tree/main/${folderName}`;
-        document.getElementById('dynamic-link').innerText = `📅 进入 ${folderName} 归档`;
+        const repo = "Sircatx/3282568_danmu";
+        const app = document.getElementById('app');
+
+        // 智能获取内容，不跳转 GitHub
+        async function loadPath(path = "") {
+            app.innerHTML = '<div class="loading">正在努力读取中...</div>';
+            try {
+                // 使用 GitHub API 获取文件树
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`);
+                const data = await res.json();
+                
+                let html = path ? `<div class="back-btn" onclick="loadPath('')">⬅ 返回主目录</div>` : '';
+                html += '<div class="list-group">';
+                
+                data.forEach(item => {
+                    if (item.name === 'index.html' || item.name === 'vercel.json') return;
+                    
+                    if (item.type === 'dir') {
+                        // 文件夹：点击仍在 Vercel 内切换
+                        html += `<a href="javascript:void(0)" class="file-item" onclick="loadPath('${item.path}')"><span class="icon">📁</span>${item.name}</a>`;
+                    } else {
+                        // 文件：点击使用国内加速通道直接打开
+                        const proxyUrl = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${item.path}`;
+                        html += `<a href="${proxyUrl}" target="_blank" class="file-item"><span class="icon">📄</span>${item.name}</a>`;
+                    }
+                });
+                
+                html += '</div>';
+                app.innerHTML = html;
+            } catch (e) {
+                app.innerHTML = '<div class="loading">哎呀，加载失败了，请刷新重试~</div>';
+            }
+        }
+
+        loadPath(""); // 初始化加载
     </script>
 </body>
 </html>
