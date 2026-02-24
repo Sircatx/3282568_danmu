@@ -9,83 +9,111 @@
         body { font-family: -apple-system, sans-serif; background: #fdf2f5; margin: 0; padding: 15px; }
         .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 24px; padding: 25px; box-shadow: 0 8px 30px rgba(255,105,180,0.1); min-height: 85vh; }
         .header { text-align: center; color: var(--pink); font-size: 1.6rem; font-weight: 800; margin-bottom: 25px; }
-        .search-input { width: 100%; padding: 14px; border: 2px solid var(--light-pink); border-radius: 14px; margin-bottom: 20px; box-sizing: border-box; outline: none; }
+        .search-input { width: 100%; padding: 14px; border: 2px solid var(--light-pink); border-radius: 14px; margin-bottom: 20px; box-sizing: border-box; outline: none; width: 100%; }
         .card { display: flex; align-items: center; padding: 18px; background: #fff; border: 1px solid #f0f0f0; border-radius: 18px; cursor: pointer; transition: 0.2s; margin-bottom: 12px; }
-        .card:hover { border-color: var(--pink); }
-        .btn-down-ui { padding: 8px 18px; border-radius: 12px; background: var(--pink); color: white; text-decoration: none; font-size: 0.9rem; font-weight: bold; border: none; cursor: pointer; }
-        #viewer-container { display: none; margin-top: 20px; }
-        #viewer-content { background: #1a1a1a; color: #ccc; padding: 20px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.9rem; line-height: 1.5; max-height: 60vh; overflow-y: auto; }
-        .loading { text-align: center; padding: 50px; color: var(--pink); }
+        .card:hover { border-color: var(--pink); background: var(--light-pink); }
+        .card-icon { font-size: 1.5rem; margin-right: 12px; }
+        .card-name { flex: 1; font-weight: 700; color: #444; }
+        .btn-down { padding: 8px 15px; border-radius: 12px; background: var(--pink); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .btn-back { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 12px; margin-bottom: 15px; cursor: pointer; font-weight: bold; }
+        #viewer-container { display: none; margin-bottom: 20px; }
+        #viewer-content { background: #1a1a1a; color: #eee; padding: 18px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.9rem; max-height: 50vh; overflow-y: auto; line-height: 1.5; }
+        .loading { text-align: center; padding: 40px; color: var(--pink); font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">🌻 怪小葵的弹幕归档</div>
-        <input type="text" id="search" class="search-input" placeholder="🔍 搜日期(如20260224)..." oninput="onSearch()">
+        <input type="text" id="search" class="search-input" placeholder="🔍 搜索月份或日期..." oninput="onSearch()">
+        
         <div id="viewer-container">
-            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                <span id="viewing-name" style="color:var(--pink); font-weight:bold;">正在同步...</span>
-                <button onclick="document.getElementById('viewer-container').style.display='none'" style="background:none; border:1px solid var(--pink); color:var(--pink); border-radius:8px; cursor:pointer;">收起 ↑</button>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span id="viewing-name" style="color:var(--pink); font-weight:bold;">正在阅读</span>
+                <button onclick="document.getElementById('viewer-container').style.display='none'" style="background:none; border:1px solid var(--pink); color:var(--pink); padding:4px 10px; border-radius:8px; cursor:pointer;">收起 ↑</button>
             </div>
             <pre id="viewer-content"></pre>
         </div>
+
         <div id="content"></div>
     </div>
 
     <script>
-        // 核心：全部指向你的 Gitee 仓库
         const user = "Sircatx";
         const repo = "3282568_danmu";
+        // 使用针对 Gitee/GitHub 优化的 jsDelivr 通道，国内速度极快且无跨域限制
+        const fastProxy = "https://fastly.jsdelivr.net/gh/"; 
         const contentDiv = document.getElementById('content');
+        let homeData = [], currentFiles = [], mode = 'home', currentMonth = '';
 
         async function loadHome() {
-            contentDiv.innerHTML = '<div class="loading">🚀 正在通过 Gitee 国内专线同步...</div>';
+            mode = 'home';
+            contentDiv.innerHTML = '<div class="loading">✨ 正在连接国内加速通道...</div>';
             try {
-                // 直接从 Gitee 抓取目录
-                const res = await fetch(`https://gitee.com/api/v5/repos/${user}/${repo}/contents/`);
+                // 依然从 GitHub 获取目录索引，因为它最准确
+                const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/?t=${Date.now()}`);
                 const data = await res.json();
-                const list = data.filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
-                renderHome(list);
-            } catch (e) { contentDiv.innerHTML = '同步失败，请刷新重试'; }
+                homeData = data.filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
+                renderHome(homeData);
+            } catch (e) { contentDiv.innerHTML = '<div class="loading">⚠️ 线路繁忙，请稍后再试</div>'; }
         }
 
         function renderHome(list) {
             let html = '';
             list.forEach(item => {
-                html += `<div class="card" onclick="loadMonth('${item.name}')">📁 <b style="margin-left:10px">${item.name}</b></div>`;
+                html += `<div class="card" onclick="loadMonth('${item.name}')"><span class="card-icon">📂</span><span class="card-name">${item.name}</span><span>➔</span></div>`;
             });
             contentDiv.innerHTML = html;
         }
 
         async function loadMonth(m) {
-            contentDiv.innerHTML = '<div class="loading">正在加载...</div>';
+            mode = 'files'; currentMonth = m;
+            contentDiv.innerHTML = '<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">正在读取...</div>';
             try {
-                const res = await fetch(`https://gitee.com/api/v5/repos/${user}/${repo}/contents/${m}`);
-                const data = await res.json();
-                let html = `<button onclick="loadHome()" style="margin-bottom:15px; padding:10px; border-radius:10px; border:none; background:#444; color:white;">⬅ 返回</button>`;
-                data.filter(f => f.name.endsWith('.txt')).reverse().forEach(f => {
-                    const rawUrl = `https://gitee.com/${user}/${repo}/raw/main/${m}/${f.name}`;
-                    html += `<div class="card" onclick="openFile('${rawUrl}', '${f.name}')">
-                        <div style="flex:1">📄 ${f.name.replace('.txt','')}</div>
-                        <button class="btn-down-ui" onclick="event.stopPropagation(); window.open('${rawUrl}')">下载</button>
-                    </div>`;
-                });
-                contentDiv.innerHTML = html;
+                const res = await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${m}?t=${Date.now()}`);
+                currentFiles = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
+                renderFiles(currentFiles);
             } catch (e) { contentDiv.innerHTML = '加载失败'; }
+        }
+
+        function renderFiles(files) {
+            let html = '<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>';
+            files.forEach(f => {
+                const fileUrl = `${fastProxy}${user}/${repo}@main/${currentMonth}/${f.name}`;
+                html += `<div class="card" onclick="openFile('${fileUrl}', '${f.name}')">
+                    <span class="card-icon">📄</span>
+                    <span class="card-name">${f.name.replace('.txt','')}</span>
+                    <button class="btn-down" onclick="event.stopPropagation(); window.open('${fileUrl}')">下载</button>
+                </div>`;
+            });
+            contentDiv.innerHTML = html;
         }
 
         async function openFile(url, name) {
             const viewer = document.getElementById('viewer-container');
             const vContent = document.getElementById('viewer-content');
-            document.getElementById('viewing-name').innerText = "实时查看：" + name;
+            document.getElementById('viewing-name').innerText = "实时查看：" + name.replace('.txt','');
             viewer.style.display = 'block';
-            vContent.innerText = "⏳ 正在同步最新弹幕...";
-            window.scrollTo({top:0, behavior:'smooth'});
+            vContent.innerText = "🚀 正在秒速拉取最新内容...";
+            window.scrollTo({top: 0, behavior: 'smooth'});
             
             try {
-                const res = await fetch(url + "?t=" + Date.now());
-                vContent.innerText = await res.text();
-            } catch (e) { vContent.innerText = "读取失败，请稍后刷新。"; }
+                // 增加随机数避开缓存，确保“内容变多”
+                const res = await fetch(url + "?v=" + Date.now());
+                if (res.ok) {
+                    vContent.innerText = await res.text();
+                } else { throw new Error(); }
+            } catch (e) {
+                vContent.innerText = "❌ 读取失败。请点击下方的“下载”按钮直接查看，或稍后再试。";
+            }
+        }
+
+        function onSearch() {
+            const k = document.getElementById('search').value.toLowerCase();
+            if (mode === 'home') {
+                renderHome(homeData.filter(i => i.name.includes(k)));
+            } else {
+                renderFiles(currentFiles.filter(f => f.name.includes(k)));
+            }
         }
 
         loadHome();
