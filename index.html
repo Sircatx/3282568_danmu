@@ -12,13 +12,21 @@
         .search-input { width: 100%; padding: 14px; border: 2px solid var(--light-pink); border-radius: 14px; margin-bottom: 20px; box-sizing: border-box; outline: none; }
         .year-title { display: flex; align-items: center; margin: 25px 0 15px; color: var(--pink); font-weight: bold; font-size: 1.1rem; }
         .year-title::after { content: ""; flex: 1; height: 2px; background: linear-gradient(to right, var(--light-pink), transparent); margin-left: 10px; }
+        
         .card { display: flex; align-items: center; padding: 18px; background: #fff; border: 1px solid #f0f0f0; border-radius: 18px; cursor: pointer; transition: 0.2s; margin-bottom: 12px; }
-        .card:hover { border-color: var(--pink); transform: translateY(-3px); box-shadow: 0 6px 15px rgba(255,105,180,0.15); }
+        .card:hover { border-color: var(--pink); }
         .card-icon { font-size: 1.8rem; margin-right: 15px; }
         .card-info { flex-grow: 1; display: flex; flex-direction: column; }
         .card-name { font-weight: 700; font-size: 1.1rem; color: #444; }
         .btn-down-ui { padding: 8px 18px; border-radius: 12px; background: var(--pink); color: white; text-decoration: none; font-size: 0.9rem; font-weight: bold; border: none; cursor: pointer; }
         .btn-back { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; font-weight: bold; }
+
+        /* 新增：内嵌式内容查看器 */
+        #viewer-container { display: none; margin-top: 20px; }
+        #viewer-content { background: #1a1a1a; color: #ccc; padding: 20px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.9rem; line-height: 1.5; max-height: 60vh; overflow-y: auto; border: 1px solid #333; }
+        .viewer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: var(--pink); font-weight: bold; }
+        .btn-close { background: none; border: 1px solid var(--pink); color: var(--pink); padding: 4px 12px; border-radius: 8px; cursor: pointer; }
+
         .loading { text-align: center; padding: 50px; color: var(--pink); }
     </style>
 </head>
@@ -26,52 +34,38 @@
     <div class="container">
         <div class="header">🌻 怪小葵的弹幕归档</div>
         <input type="text" id="search" class="search-input" placeholder="🔍 搜日期(如20260224)..." oninput="onSearch()">
+        
+        <div id="viewer-container">
+            <div class="viewer-header">
+                <span id="viewing-name">正在阅读</span>
+                <button class="btn-close" onclick="closeViewer()">收起内容 ↑</button>
+            </div>
+            <pre id="viewer-content"></pre>
+            <hr style="border: 0; height: 1px; background: var(--light-pink); margin: 20px 0;">
+        </div>
+
         <div id="content"></div>
     </div>
 
     <script>
         const repo = "Sircatx/3282568_danmu";
-        // 这里的顺序改了：优先走实时源，最后走镜像站
-        const mirrors = [
-            "https://raw.githubusercontent.com/", // 实时源
-            "https://jsd.cdn.zzko.cn/gh/",         // 镜像1
-            "https://fastly.jsdelivr.net/gh/"     // 镜像2
-        ];
-        
+        const mirrors = ["https://fastly.jsdelivr.net/gh/", "https://jsd.cdn.zzko.cn/gh/"];
         const content = document.getElementById('content');
         const searchInput = document.getElementById('search');
+        const viewerContainer = document.getElementById('viewer-container');
+        const viewerContent = document.getElementById('viewer-content');
+        const viewingName = document.getElementById('viewing-name');
+        
         let homeData = [], currentFiles = [], mode = 'home', currentMonth = '';
 
-        async function smartFetch(path) {
-            const timestamp = new Date().getTime(); 
-            // 1. 尝试 GitHub 官方实时源 (Raw)
-            try {
-                const rawRes = await fetch(`https://raw.githubusercontent.com/${repo}/main/${path}?t=${timestamp}`);
-                if (rawRes.ok) return await rawRes.text();
-            } catch(e) {}
-
-            // 2. 如果实时源打不开（墙了），再遍历镜像站
-            for (let i = 1; i < mirrors.length; i++) {
-                try {
-                    const res = await fetch(`${mirrors[i]}${repo}@main/${path}?t=${timestamp}`);
-                    if (res.ok) return await res.text();
-                } catch (e) { continue; }
-            }
-            return null;
-        }
-
         async function loadHome() {
-            mode = 'home';
+            mode = 'home'; closeViewer();
             content.innerHTML = '<div class="loading">✨ 正在同步最新记录...</div>';
             try {
-                // 列表获取强制不缓存
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/?t=${new Date().getTime()}`);
-                if(!res.ok) throw new Error();
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/?t=${Date.now()}`);
                 homeData = (await res.json()).filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
                 renderHome(homeData);
-            } catch (e) { 
-                content.innerHTML = '<div class="loading">⚠️ 线路繁忙<br><small>可能是 GitHub 限制了访问频率，请稍后再试</small></div>'; 
-            }
+            } catch (e) { content.innerHTML = '<div class="loading">⚠️ 连接繁忙，请稍后再试</div>'; }
         }
 
         function renderHome(list) {
@@ -79,21 +73,20 @@
             list.forEach(item => {
                 const year = item.name.split('-')[0];
                 if (year !== lastYear) { html += `<div class="year-title">${year} 年</div>`; lastYear = year; }
-                html += `
-                    <div class="card" onclick="loadMonth('${item.name}')">
-                        <div class="card-icon">📂</div>
-                        <div class="card-info"><span class="card-name">${item.name}</span></div>
-                        <span style="color:#eee; font-size:1.2rem">➔</span>
-                    </div>`;
+                html += `<div class="card" onclick="loadMonth('${item.name}')">
+                    <div class="card-icon">📂</div>
+                    <div class="card-info"><span class="card-name">${item.name}</span></div>
+                    <span style="color:#eee; font-size:1.2rem">➔</span>
+                </div>`;
             });
             content.innerHTML = html;
         }
 
         async function loadMonth(m, searchKey = '') {
-            mode = 'files'; currentMonth = m;
+            mode = 'files'; currentMonth = m; closeViewer();
             content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">读取中...</div>`;
             try {
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}?t=${new Date().getTime()}`);
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}?t=${Date.now()}`);
                 currentFiles = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
                 renderFiles(searchKey ? currentFiles.filter(f => f.name.replace(/-/g,'').includes(searchKey)) : currentFiles);
             } catch (e) { content.innerHTML = '读取失败'; }
@@ -102,32 +95,43 @@
         function renderFiles(files) {
             let html = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>`;
             files.forEach(f => {
-                const timestamp = new Date().getTime();
-                // 下载链接依然提供一个镜像站的，防止 Raw 被墙
-                const downUrl = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${currentMonth}/${f.name}?t=${timestamp}`;
-                html += `
-                    <div class="card" onclick="openFile('${currentMonth}/${f.name}')">
-                        <div class="card-icon">📄</div>
-                        <div class="card-info"><span class="card-name">${f.name.replace('.txt','')}</span></div>
-                        <button class="btn-down-ui" onclick="event.stopPropagation(); forceDownload('${downUrl}', '${f.name}')">下载</button>
-                    </div>`;
+                const fastUrl = `${mirrors[0]}${repo}@main/${currentMonth}/${f.name}`;
+                html += `<div class="card" onclick="openInline('${currentMonth}/${f.name}', '${f.name}')">
+                    <div class="card-icon">📄</div>
+                    <div class="card-info"><span class="card-name">${f.name.replace('.txt','')}</span></div>
+                    <button class="btn-down-ui" onclick="event.stopPropagation(); forceDownload('${fastUrl}', '${f.name}')">下载</button>
+                </div>`;
             });
             content.innerHTML = html || '<div class="loading">未找到文件</div>';
         }
 
-        async function openFile(path) {
-            const data = await smartFetch(path);
+        async function openInline(path, name) {
+            viewingName.innerText = "正在加载：" + name.replace('.txt','');
+            viewerContent.innerText = "✨ 正在努力拉取最新弹幕...";
+            viewerContainer.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // 尝试拉取内容
+            let data = null;
+            for (let mirror of mirrors) {
+                try {
+                    const res = await fetch(`${mirror}${repo}@main/${path}?t=${Date.now()}`);
+                    if (res.ok) { data = await res.text(); break; }
+                } catch (e) {}
+            }
+
             if (data) {
-                const win = window.open("", "_blank");
-                win.document.write("<html><body style='background:#1a1a1a;color:#ccc;padding:20px;'><pre style='word-wrap:break-word;white-space:pre-wrap;font-family:monospace;line-height:1.5;'>" + data + "</pre></body></html>");
+                viewerContent.innerText = data;
             } else {
-                alert("获取实时数据失败，可能是网络波动，请稍后再试！");
+                viewerContent.innerText = "❌ 读取失败，可能是由于网络波动或文件过大。建议直接点击下方列表中的“下载”按钮查看！";
             }
         }
 
+        function closeViewer() { viewerContainer.style.display = 'none'; }
+
         async function forceDownload(url, filename) {
             try {
-                const response = await fetch(url);
+                const response = await fetch(url + "?t=" + Date.now());
                 const blob = await response.blob();
                 const link = document.createElement("a");
                 link.href = URL.createObjectURL(blob);
@@ -136,19 +140,17 @@
             } catch (e) { window.open(url, '_blank'); }
         }
 
-        async function onSearch() {
+        function onSearch() {
             const k = searchInput.value.toLowerCase().replace(/-/g, '');
             if (!k) { if(mode==='home') renderHome(homeData); else renderFiles(currentFiles); return; }
             if (mode === 'home') {
-                if (k.length >= 6) {
+                if (k.length >= 8) {
                     const targetMonth = k.substring(0,4) + '-' + k.substring(4,6);
                     const monthExists = homeData.find(m => m.name === targetMonth);
-                    if (monthExists && k.length === 8) { loadMonth(targetMonth, k); return; }
+                    if (monthExists) { loadMonth(targetMonth, k); return; }
                 }
                 renderHome(homeData.filter(i => i.name.replace(/-/g, '').includes(k)));
-            } else {
-                renderFiles(currentFiles.filter(f => f.name.replace(/-/g, '').includes(k)));
-            }
+            } else { renderFiles(currentFiles.filter(f => f.name.replace(/-/g, '').includes(k))); }
         }
         loadHome();
     </script>
