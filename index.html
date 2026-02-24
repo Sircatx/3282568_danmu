@@ -12,7 +12,6 @@
         .search-input { width: 100%; padding: 14px; border: 2px solid var(--light-pink); border-radius: 14px; margin-bottom: 20px; box-sizing: border-box; outline: none; }
         .year-title { display: flex; align-items: center; margin: 25px 0 15px; color: var(--pink); font-weight: bold; font-size: 1.1rem; }
         .year-title::after { content: ""; flex: 1; height: 2px; background: linear-gradient(to right, var(--light-pink), transparent); margin-left: 10px; }
-        
         .card { display: flex; align-items: center; padding: 18px; background: #fff; border: 1px solid #f0f0f0; border-radius: 18px; cursor: pointer; transition: 0.2s; margin-bottom: 12px; }
         .card:hover { border-color: var(--pink); }
         .card-icon { font-size: 1.8rem; margin-right: 15px; }
@@ -20,13 +19,10 @@
         .card-name { font-weight: 700; font-size: 1.1rem; color: #444; }
         .btn-down-ui { padding: 8px 18px; border-radius: 12px; background: var(--pink); color: white; text-decoration: none; font-size: 0.9rem; font-weight: bold; border: none; cursor: pointer; }
         .btn-back { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; font-weight: bold; }
-
-        /* 新增：内嵌式内容查看器 */
         #viewer-container { display: none; margin-top: 20px; }
-        #viewer-content { background: #1a1a1a; color: #ccc; padding: 20px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.9rem; line-height: 1.5; max-height: 60vh; overflow-y: auto; border: 1px solid #333; }
+        #viewer-content { background: #1a1a1a; color: #ccc; padding: 20px; border-radius: 18px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 0.9rem; line-height: 1.5; max-height: 60vh; overflow-y: auto; }
         .viewer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; color: var(--pink); font-weight: bold; }
         .btn-close { background: none; border: 1px solid var(--pink); color: var(--pink); padding: 4px 12px; border-radius: 8px; cursor: pointer; }
-
         .loading { text-align: center; padding: 50px; color: var(--pink); }
     </style>
 </head>
@@ -34,38 +30,50 @@
     <div class="container">
         <div class="header">🌻 怪小葵的弹幕归档</div>
         <input type="text" id="search" class="search-input" placeholder="🔍 搜日期(如20260224)..." oninput="onSearch()">
-        
         <div id="viewer-container">
-            <div class="viewer-header">
-                <span id="viewing-name">正在阅读</span>
-                <button class="btn-close" onclick="closeViewer()">收起内容 ↑</button>
-            </div>
+            <div class="viewer-header"><span id="viewing-name">正在阅读</span><button class="btn-close" onclick="closeViewer()">收起内容 ↑</button></div>
             <pre id="viewer-content"></pre>
             <hr style="border: 0; height: 1px; background: var(--light-pink); margin: 20px 0;">
         </div>
-
         <div id="content"></div>
     </div>
 
     <script>
         const repo = "Sircatx/3282568_danmu";
-        const mirrors = ["https://fastly.jsdelivr.net/gh/", "https://jsd.cdn.zzko.cn/gh/"];
         const content = document.getElementById('content');
         const searchInput = document.getElementById('search');
         const viewerContainer = document.getElementById('viewer-container');
         const viewerContent = document.getElementById('viewer-content');
         const viewingName = document.getElementById('viewing-name');
-        
         let homeData = [], currentFiles = [], mode = 'home', currentMonth = '';
+
+        // 核心：强制直连 GitHub Raw 且不带任何缓存头
+        async function fetchLiveContent(path) {
+            const timestamp = Date.now();
+            // 这里使用了 Statically 提供的去缓存代理，它是目前国内最稳且更新最快的
+            const proxyUrl = `https://cdn.statically.io/gh/${repo}/main/${path}?v=${timestamp}`;
+            try {
+                const res = await fetch(proxyUrl, { cache: "no-store" });
+                if (res.ok) return await res.text();
+            } catch (e) {}
+            
+            // 备用：直连官方 Raw (可能慢，但内容最稳)
+            try {
+                const rawRes = await fetch(`https://raw.githubusercontent.com/${repo}/main/${path}?t=${timestamp}`);
+                if (rawRes.ok) return await rawRes.text();
+            } catch (e) {}
+            return null;
+        }
 
         async function loadHome() {
             mode = 'home'; closeViewer();
-            content.innerHTML = '<div class="loading">✨ 正在同步最新记录...</div>';
+            content.innerHTML = '<div class="loading">✨ 正在从云端拉取最新记录...</div>';
             try {
+                // API 列表也强制刷新
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/?t=${Date.now()}`);
                 homeData = (await res.json()).filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
                 renderHome(homeData);
-            } catch (e) { content.innerHTML = '<div class="loading">⚠️ 连接繁忙，请稍后再试</div>'; }
+            } catch (e) { content.innerHTML = '<div class="loading">⚠️ 线路繁忙，请稍后再试</div>'; }
         }
 
         function renderHome(list) {
@@ -84,7 +92,7 @@
 
         async function loadMonth(m, searchKey = '') {
             mode = 'files'; currentMonth = m; closeViewer();
-            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">读取中...</div>`;
+            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">同步中...</div>`;
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}?t=${Date.now()}`);
                 currentFiles = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
@@ -95,50 +103,30 @@
         function renderFiles(files) {
             let html = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>`;
             files.forEach(f => {
-                const fastUrl = `${mirrors[0]}${repo}@main/${currentMonth}/${f.name}`;
                 html += `<div class="card" onclick="openInline('${currentMonth}/${f.name}', '${f.name}')">
                     <div class="card-icon">📄</div>
                     <div class="card-info"><span class="card-name">${f.name.replace('.txt','')}</span></div>
-                    <button class="btn-down-ui" onclick="event.stopPropagation(); forceDownload('${fastUrl}', '${f.name}')">下载</button>
+                    <button class="btn-down-ui" onclick="event.stopPropagation(); window.open('https://cdn.statically.io/gh/${repo}/main/${currentMonth}/${f.name}?v=${Date.now()}')">下载</button>
                 </div>`;
             });
             content.innerHTML = html || '<div class="loading">未找到文件</div>';
         }
 
         async function openInline(path, name) {
-            viewingName.innerText = "正在加载：" + name.replace('.txt','');
-            viewerContent.innerText = "✨ 正在努力拉取最新弹幕...";
+            viewingName.innerText = "正在读取：" + name.replace('.txt','');
+            viewerContent.innerText = "🚀 正在穿透缓存，拉取最新弹幕...";
             viewerContainer.style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            // 尝试拉取内容
-            let data = null;
-            for (let mirror of mirrors) {
-                try {
-                    const res = await fetch(`${mirror}${repo}@main/${path}?t=${Date.now()}`);
-                    if (res.ok) { data = await res.text(); break; }
-                } catch (e) {}
-            }
-
+            const data = await fetchLiveContent(path);
             if (data) {
                 viewerContent.innerText = data;
             } else {
-                viewerContent.innerText = "❌ 读取失败，可能是由于网络波动或文件过大。建议直接点击下方列表中的“下载”按钮查看！";
+                viewerContent.innerText = "❌ 实时同步失败。镜像站可能还在同步中，请稍后刷新。";
             }
         }
 
         function closeViewer() { viewerContainer.style.display = 'none'; }
-
-        async function forceDownload(url, filename) {
-            try {
-                const response = await fetch(url + "?t=" + Date.now());
-                const blob = await response.blob();
-                const link = document.createElement("a");
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                link.click();
-            } catch (e) { window.open(url, '_blank'); }
-        }
 
         function onSearch() {
             const k = searchInput.value.toLowerCase().replace(/-/g, '');
