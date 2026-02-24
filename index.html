@@ -5,116 +5,133 @@
     <title>怪小葵的弹幕归档</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        :root { --pink: #ff69b4; --soft-pink: #ffecf2; --bg: #fdf2f5; }
+        :root { --pink: #ff69b4; --bg: #fdf2f5; --card-border: #ffe4ed; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
-        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 30px; padding: 25px; box-shadow: 0 15px 35px rgba(255,105,180,0.1); min-height: 85vh; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 25px; padding: 20px; box-shadow: 0 10px 30px rgba(255,105,180,0.1); min-height: 85vh; }
+        .header { text-align: center; color: var(--pink); font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; border-bottom: 2px dashed var(--card-border); padding-bottom: 15px; }
         
-        /* 标题美化 */
-        .header-title { text-align: center; color: var(--pink); font-size: 1.6rem; margin-bottom: 25px; font-weight: 800; letter-spacing: 1px; }
+        /* 搜索框 */
+        .search-box { width: 100%; padding: 12px 15px; border: 2px solid var(--card-border); border-radius: 12px; margin-bottom: 20px; box-sizing: border-box; outline: none; transition: 0.3s; }
+        .search-box:focus { border-color: var(--pink); }
+
+        /* 年份分割线样式 */
+        .year-divider { display: flex; align-items: center; margin: 25px 0 15px 0; color: var(--pink); font-weight: bold; font-size: 0.9rem; }
+        .year-divider::after { content: ""; flex: 1; height: 1px; background: var(--card-border); margin-left: 10px; }
+
+        /* 文件夹卡片 */
+        .folder-grid { display: flex; flex-direction: column; gap: 12px; }
+        .card { display: flex; align-items: center; padding: 16px; background: #fff; border: 1.5px solid #f5f5f5; border-radius: 16px; cursor: pointer; transition: all 0.2s; position: relative; }
+        .card:hover { border-color: var(--pink); background: #fffafc; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255,105,180,0.1); }
         
-        /* 搜索框美化 */
-        .search-box { width: 100%; padding: 15px; border: 2px solid var(--soft-pink); border-radius: 18px; margin-bottom: 20px; box-sizing: border-box; outline: none; font-size: 1rem; transition: all 0.3s; }
-        .search-box:focus { border-color: var(--pink); box-shadow: 0 0 10px rgba(255,105,180,0.1); }
+        .icon { font-size: 1.8rem; margin-right: 15px; }
+        .info { display: flex; flex-direction: column; }
+        .name { font-weight: bold; color: #444; font-size: 1.05rem; }
+        .sub { font-size: 0.75rem; color: #999; margin-top: 2px; }
 
-        /* 文件夹卡片样式 */
-        .grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
-        .folder-card { position: relative; background: #fff; border-radius: 18px; padding: 20px; display: flex; align-items: center; border: 1px solid #eee; cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); overflow: hidden; }
-        .folder-card::before { content: ""; position: absolute; left: 0; top: 0; height: 100%; width: 6px; background: var(--pink); }
-        .folder-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 10px 20px rgba(0,0,0,0.05); border-color: var(--pink); }
-        
-        .icon-box { font-size: 2.2rem; margin-right: 18px; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.1)); }
-        .folder-info { display: flex; flex-direction: column; }
-        .folder-name { font-weight: bold; font-size: 1.1rem; color: #333; }
-        .folder-desc { font-size: 0.8rem; color: #999; margin-top: 4px; }
-
-        /* 年份标签 */
-        .year-tag { background: var(--pink); color: white; padding: 5px 15px; border-radius: 50px; font-size: 0.8rem; font-weight: bold; margin: 15px 0 10px 0; width: fit-content; }
-
-        .back-btn { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
-        #viewer { display: none; background: #282c34; color: #abb2bf; padding: 20px; border-radius: 18px; white-space: pre-wrap; margin-top: 15px; max-height: 50vh; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem; border: 4px solid #3e4451; }
+        /* 返回与内容查看 */
+        .back-btn { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 10px; margin-bottom: 15px; cursor: pointer; font-weight: bold; }
+        #viewer { display: none; background: #222; color: #eee; padding: 15px; border-radius: 12px; font-family: monospace; white-space: pre-wrap; font-size: 0.85rem; margin-top: 15px; max-height: 50vh; overflow-y: auto; border: 3px solid #333; }
+        .loading { text-align: center; padding: 50px; color: var(--pink); font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header-title">🌻 怪小葵的归档站</div>
-        <input type="text" id="search" class="search-box" placeholder="🔍 快速搜索月份或日期..." oninput="doSearch()">
-        <div id="app"></div>
+        <div class="header">🌻 怪小葵的归档站</div>
+        <input type="text" id="search" class="search-box" placeholder="🔍 快速搜索..." oninput="doSearch()">
+        <div id="app"><div class="loading">正在加载档案...</div></div>
         <pre id="viewer"></pre>
     </div>
 
     <script>
         const repo = "Sircatx/3282568_danmu";
-        let rawData = [];
-        let subData = [];
+        const app = document.getElementById('app');
+        const viewer = document.getElementById('viewer');
+        let monthCache = []; // 首页月份缓存
+        let fileCache = [];  // 日期文件缓存
+        let isAtHome = true;
 
-        async function init() {
-            document.getElementById('viewer').style.display = 'none';
-            document.getElementById('search').style.display = 'block';
-            const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
-            rawData = (await res.json()).filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
-            renderMonths(rawData);
+        // 加载首页：月份文件夹
+        async function loadHome() {
+            isAtHome = true;
+            viewer.style.display = 'none';
+            app.innerHTML = '<div class="loading">正在读取年份归档...</div>';
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
+                const data = await res.json();
+                monthCache = data.filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
+                renderMonths(monthCache);
+            } catch (e) { app.innerHTML = '读取失败，请检查网络。'; }
         }
 
+        // 渲染月份（带年份分组）
         function renderMonths(list) {
-            let html = '', lastYear = '';
+            let html = '<div class="folder-grid">';
+            let lastYear = '';
             list.forEach(item => {
                 const year = item.name.split('-')[0];
                 if (year !== lastYear) {
-                    html += `<div class="year-tag">${year} YEAR</div>`;
+                    html += `<div class="year-divider">📅 ${year} 年</div>`;
                     lastYear = year;
                 }
                 html += `
-                    <div class="folder-card" onclick="openMonth('${item.name}')">
-                        <div class="icon-box">📂</div>
-                        <div class="folder-info">
-                            <span class="folder-name">${item.name} 归档</span>
-                            <span class="folder-desc">点击查看该月所有弹幕记录</span>
+                    <div class="card" onclick="loadDates('${item.name}')">
+                        <div class="icon">📂</div>
+                        <div class="info">
+                            <span class="name">${item.name} 归档</span>
+                            <span class="sub">包含该月所有弹幕记录</span>
                         </div>
                     </div>`;
             });
-            document.getElementById('app').innerHTML = html || '<p style="text-align:center;color:#999">空空如也~</p>';
+            app.innerHTML = html + '</div>';
         }
 
-        async function openMonth(m) {
-            document.getElementById('search').placeholder = "🔍 搜索具体日期...";
-            document.getElementById('app').innerHTML = '<button class="back-btn" onclick="init()">⬅ 返回首页</button><p>正在开启档案...</p>';
-            const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}`);
-            subData = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
-            renderFiles(subData, m);
+        // 加载具体日期文件
+        async function loadDates(month) {
+            isAtHome = false;
+            app.innerHTML = `<button class="back-btn" onclick="loadHome()">⬅ 返回</button><div class="loading">整理 ${month} 中...</div>`;
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${month}`);
+                const data = await res.json();
+                fileCache = data.filter(f => f.name.endsWith('.txt')).reverse();
+                renderFiles(fileCache, month);
+            } catch (e) { app.innerHTML = '日期加载失败。'; }
         }
 
-        function renderFiles(files, m) {
-            let html = `<button class="back-btn" onclick="init()">⬅ 返回首页</button><div class="grid">`;
+        function renderFiles(files, month) {
+            let html = `<button class="back-btn" onclick="loadHome()">⬅ 返回目录</button><div class="folder-grid">`;
             files.forEach(f => {
                 html += `
-                    <div class="folder-card" onclick="view('${m}/${f.name}')">
-                        <div class="icon-box">📄</div>
-                        <div class="folder-info">
-                            <span class="folder-name">${f.name.replace('.txt','')}</span>
-                            <span class="folder-desc">TXT 文本文件</span>
+                    <div class="card" onclick="viewFile('${month}/${f.name}')">
+                        <div class="icon">📄</div>
+                        <div class="info">
+                            <span class="name">${f.name.replace('.txt','')}</span>
+                            <span class="sub">TXT 文本内容</span>
                         </div>
                     </div>`;
             });
-            document.getElementById('app').innerHTML = html + '</div>';
+            app.innerHTML = html + '</div>';
         }
 
+        // 搜索逻辑
         function doSearch() {
             const k = document.getElementById('search').value.toLowerCase();
-            const isSub = !!document.querySelector('.back-btn');
-            if(!isSub) renderMonths(rawData.filter(m => m.name.includes(k)));
-            else renderFiles(subData.filter(f => f.name.includes(k)), "");
+            if (isAtHome) {
+                renderMonths(monthCache.filter(m => m.name.includes(k)));
+            } else {
+                renderFiles(fileCache.filter(f => f.name.includes(k)), "");
+            }
         }
 
-        async function view(p) {
-            const v = document.getElementById('viewer');
-            v.style.display = 'block';
-            v.innerText = "正在解密内容...";
-            const res = await fetch(`https://mirror.ghproxy.com/https://raw.githubusercontent.com/${repo}/main/${p}`);
-            v.innerText = await res.text();
-            window.scrollTo(0, v.offsetTop);
+        // 查看文件
+        async function viewFile(path) {
+            viewer.style.display = 'block';
+            viewer.innerText = '正在读取...';
+            const res = await fetch(`https://mirror.ghproxy.com/https://raw.githubusercontent.com/${repo}/main/${path}`);
+            viewer.innerText = await res.text();
+            window.scrollTo(0, viewer.offsetTop);
         }
 
-        init();
+        loadHome();
     </script>
 </body>
 </html>
