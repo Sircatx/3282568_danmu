@@ -2,64 +2,39 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>永健的弹幕归档</title>
+    <title>怪小葵的弹幕归档</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f0f2f5; max-width: 600px; margin: 0 auto; }
-        .card { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        h1 { font-size: 1.2rem; color: #1a1a1a; margin-top: 0; }
-        .item { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; text-decoration: none; color: #333; }
-        .item:last-child { border-bottom: none; }
-        .item:hover { background: #f8f9fa; }
-        .icon { margin-right: 10px; font-size: 1.2rem; }
-        .back-btn { display: inline-block; margin-bottom: 10px; color: #0070f3; cursor: pointer; font-weight: bold; }
-        .loading { text-align: center; color: #666; padding: 20px; }
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f9f9f9; display: flex; justify-content: center; }
+        .container { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 450px; text-align: center; }
+        h1 { color: #ff69b4; font-size: 1.5rem; margin-bottom: 20px; border-bottom: 2px dashed #ffd1dc; padding-bottom: 15px; }
+        .btn { display: block; background: #ff69b4; color: white; padding: 15px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-bottom: 15px; transition: transform 0.2s; }
+        .btn:hover { transform: scale(1.02); background: #ff85c0; }
+        .hint { font-size: 0.85rem; color: #999; margin-top: 20px; line-height: 1.5; }
     </style>
 </head>
 <body>
-    <div id="app">
-        <h1>📂 弹幕归档查看</h1>
-        <div id="nav-area"></div>
-        <div class="card" id="list">
-            <div class="loading">正在加载数据...</div>
+    <div class="container">
+        <h1>🌻 怪小葵的弹幕归档</h1>
+        
+        <a href="#" id="dynamic-link" class="btn">🚀 进入本月归档目录</a>
+        
+        <div class="hint">
+            系统会自动识别当前月份并跳转。<br>
+            若本月文件夹尚未生成，请手动返回根目录查看。
         </div>
     </div>
 
     <script>
-        const repo = "Sircatx/3282568_danmu";
-        const listDiv = document.getElementById('list');
-        const navArea = document.getElementById('nav-area');
-
-        // 获取目录内容的函数
-        async function fetchContent(path = "") {
-            listDiv.innerHTML = '<div class="loading">读取中...</div>';
-            try {
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`);
-                const data = await res.json();
-                
-                // 更新返回按钮
-                navArea.innerHTML = path ? `<div class="back-btn" onclick="fetchContent('')">⬅ 返回主目录</div>` : '';
-                
-                let html = '';
-                data.forEach(file => {
-                    if (file.name === 'index.html' || file.name === 'vercel.json') return;
-                    
-                    if (file.type === 'dir') {
-                        html += `<div class="item" onclick="fetchContent('${file.path}')"><span class="icon">📁</span>${file.name}</div>`;
-                    } else {
-                        // 使用 jsdelivr 加速查看文件内容
-                        const viewUrl = `https://jsd.cdn.zzko.cn/gh/${repo}@main/${file.path}`;
-                        html += `<a class="item" href="${viewUrl}" target="_blank"><span class="icon">📄</span>${file.name}</a>`;
-                    }
-                });
-                listDiv.innerHTML = html || '<div class="loading">该目录下没有文件</div>';
-            } catch (e) {
-                listDiv.innerHTML = '<div class="loading">加载失败，请检查网络或稍后再试</div>';
-            }
-        }
-
-        // 初始加载根目录
-        fetchContent("");
+        // 智能获取当前年月并生成 GitHub 路径
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const folderName = `${year}-${month}`;
+        
+        // 修改跳转链接
+        document.getElementById('dynamic-link').href = `https://github.com/Sircatx/3282568_danmu/tree/main/${folderName}`;
+        document.getElementById('dynamic-link').innerText = `📅 进入 ${folderName} 归档`;
     </script>
 </body>
 </html>
