@@ -1,0 +1,18 @@
+name: Sync to Gitee
+on:
+  push:
+    branches:
+      - main
+jobs:
+  repo-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror the Github repo to Gitee
+        uses: Yikun/hub-mirror-action@master
+        with:
+          src: github/Sircatx
+          dst: gitee/Sircatx
+          dst_key: ${{ secrets.GITEE_TOKEN }}
+          dst_token: ${{ secrets.GITEE_TOKEN }}
+          static_list: "3282568_danmu"
+          force_update: true
