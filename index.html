@@ -7,83 +7,128 @@
     <style>
         :root { --pink: #ff69b4; --bg: #fdf2f5; }
         body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #444; }
-        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); min-height: 90vh; }
         h1 { text-align: center; color: var(--pink); font-size: 1.4rem; border-bottom: 2px dashed #ffe4ed; padding-bottom: 10px; }
-        .list { display: flex; flex-direction: column; gap: 10px; }
-        .item { display: flex; align-items: center; padding: 15px; background: #fff; border: 1px solid #ffe4ed; border-radius: 12px; text-decoration: none; color: #555; cursor: pointer; }
-        .item:hover { background: var(--bg); }
-        .back-btn { background: var(--pink); color: white; border: none; padding: 8px 15px; border-radius: 10px; margin-bottom: 15px; cursor: pointer; }
         
-        /* 弹幕内容显示区域 */
-        #content-viewer { display: none; background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 12px; font-family: monospace; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; word-break: break-all; margin-top: 10px; max-height: 60vh; overflow-y: auto; }
-        .danmu-line { border-bottom: 1px solid #333; padding: 4px 0; }
-        .loading { text-align: center; color: var(--pink); padding: 20px; }
+        /* 搜索框样式 */
+        .search-box { width: 100%; padding: 12px; border: 2px solid #ffe4ed; border-radius: 12px; margin-bottom: 15px; box-sizing: border-box; outline: none; transition: border-color 0.3s; }
+        .search-box:focus { border-color: var(--pink); }
+
+        /* 年份分组标题 */
+        .year-header { background: var(--bg); color: var(--pink); padding: 8px 15px; border-radius: 8px; font-weight: bold; margin: 15px 0 10px 0; display: flex; justify-content: space-between; }
+        
+        .list { display: flex; flex-direction: column; gap: 8px; }
+        .item { display: flex; align-items: center; padding: 14px; background: #fff; border: 1px solid #ffe4ed; border-radius: 12px; text-decoration: none; color: #555; cursor: pointer; transition: transform 0.1s; }
+        .item:active { transform: scale(0.98); }
+        
+        .back-btn { background: var(--pink); color: white; border: none; padding: 8px 15px; border-radius: 10px; margin-bottom: 15px; cursor: pointer; font-weight: bold; }
+        #content-viewer { display: none; background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 12px; font-family: monospace; white-space: pre-wrap; margin-top: 10px; max-height: 60vh; overflow-y: auto; font-size: 0.85rem; border: 2px solid #333; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 id="main-title">🌻 怪小葵的弹幕归档</h1>
+        <h1>🌻 怪小葵的弹幕归档</h1>
+        
+        <input type="text" id="search-input" class="search-box" placeholder="🔍 输入年月或日期搜索..." oninput="filterData()">
+        
         <div id="app"></div>
         <pre id="content-viewer"></pre>
     </div>
 
     <script>
         const repo = "Sircatx/3282568_danmu";
-        const app = document.getElementById('app');
-        const viewer = document.getElementById('content-viewer');
+        let allMonths = []; // 存储所有月份数据
+        let currentMonthFiles = []; // 存储当前月的文件数据
 
-        // 加载月份
-        async function loadMonths() {
-            viewer.style.display = 'none';
-            app.innerHTML = '<div class="loading">读取归档中...</div>';
-            const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
-            const data = await res.json();
-            let html = '<div class="list">';
-            data.forEach(item => {
-                if (item.type === 'dir' && /^\d{4}-\d{2}$/.test(item.name)) {
-                    html += `<div class="item" onclick="loadDates('${item.name}')">📅 ${item.name}</div>`;
-                }
-            });
-            app.innerHTML = html + '</div>';
-        }
-
-        // 加载日期文件
-        async function loadDates(month) {
-            app.innerHTML = `<button class="back-btn" onclick="loadMonths()">⬅ 返回目录</button><div class="loading">读取 ${month} 文件...</div>`;
-            const res = await fetch(`https://api.github.com/repos/${repo}/contents/${month}`);
-            const data = await res.json();
-            data.sort((a, b) => b.name.localeCompare(a.name));
+        // 初始化加载
+        async function init() {
+            document.getElementById('content-viewer').style.display = 'none';
+            document.getElementById('search-input').style.display = 'block';
+            document.getElementById('app').innerHTML = '<div style="text-align:center;padding:20px;color:var(--pink)">正在连接时间仓库...</div>';
             
-            let html = `<button class="back-btn" onclick="loadMonths()">⬅ 返回目录</button><div class="list">`;
-            data.forEach(file => {
-                if (file.name.endsWith('.txt')) {
-                    html += `<div class="item" onclick="viewFile('${month}/${file.name}')">📄 ${file.name.replace('.txt','')}</div>`;
-                }
-            });
-            app.innerHTML = html + '</div>';
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
+                const data = await res.json();
+                allMonths = data.filter(item => item.type === 'dir' && /^\d{4}-\d{2}$/.test(item.name)).reverse();
+                renderMonthList(allMonths);
+            } catch (e) {
+                document.getElementById('app').innerHTML = '加载失败，请刷新页面。';
+            }
         }
 
-        // 【核心】读取文件内容并直接显示，不再跳转！
+        // 渲染月份列表（外面）
+        function renderMonthList(list) {
+            let html = '';
+            let lastYear = '';
+            list.forEach(item => {
+                const year = item.name.split('-')[0];
+                if (year !== lastYear) {
+                    html += `<div class="year-header"><span>📅 ${year} 年</span></div>`;
+                    lastYear = year;
+                }
+                html += `<div class="item" onclick="loadDates('${item.name}')">📁 ${item.name} 归档记录</div>`;
+            });
+            document.getElementById('app').innerHTML = html || '<div style="text-align:center;padding:20px;">找不到相关月份哦</div>';
+        }
+
+        // 渲染日期列表（里面）
+        async function loadDates(month) {
+            document.getElementById('search-input').placeholder = "🔍 搜索具体日期 (如 24)...";
+            document.getElementById('search-input').value = ""; // 进入月份清空搜索
+            document.getElementById('app').innerHTML = `<button class="back-btn" onclick="init()">⬅ 返回年份</button><div style="text-align:center;padding:20px;color:var(--pink)">读取 ${month} 日记中...</div>`;
+            
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/${month}`);
+                currentMonthFiles = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
+                renderDateList(currentMonthFiles, month);
+            } catch (e) {
+                document.getElementById('app').innerHTML = '读取失败。';
+            }
+        }
+
+        function renderDateList(files, month) {
+            let html = `<button class="back-btn" onclick="init()">⬅ 返回目录</button><div class="list">`;
+            files.forEach(file => {
+                html += `<div class="item" onclick="viewFile('${month}/${file.name}')">📄 ${file.name.replace('.txt','')}</div>`;
+            });
+            document.getElementById('app').innerHTML = html + '</div>';
+        }
+
+        // 实时过滤搜索逻辑
+        function filterData() {
+            const keyword = document.getElementById('search-input').value.toLowerCase();
+            const isInsideMonth = document.querySelector('.back-btn') !== null;
+
+            if (!isInsideMonth) {
+                const filtered = allMonths.filter(m => m.name.includes(keyword));
+                renderMonthList(filtered);
+            } else {
+                const filtered = currentMonthFiles.filter(f => f.name.includes(keyword));
+                const monthTitle = document.querySelector('strong')?.innerText || "";
+                renderDateList(filtered, ""); 
+                // 修正：在日期页搜索时保持返回按钮
+                const backBtn = `<button class="back-btn" onclick="init()">⬅ 返回目录</button>`;
+                document.getElementById('app').insertAdjacentHTML('afterbegin', '');
+            }
+        }
+
+        // 查看弹幕内容（保持之前稳定的抓取逻辑）
         async function viewFile(filePath) {
-            viewer.innerHTML = "正在努力解密弹幕...";
+            const viewer = document.getElementById('content-viewer');
+            viewer.innerHTML = "正在召唤弹幕内容...";
             viewer.style.display = 'block';
             window.scrollTo(0, document.body.scrollHeight);
             
             try {
-                // 使用 raw 链接获取原始文本内容
-                const url = `https://raw.githubusercontent.com/${repo}/main/${filePath}`;
-                // 注意：由于 raw.githubusercontent.com 在国内可能慢，我们换用加速代理
-                const proxyUrl = `https://mirror.ghproxy.com/${url}`;
-                
+                const proxyUrl = `https://mirror.ghproxy.com/https://raw.githubusercontent.com/${repo}/main/${filePath}`;
                 const res = await fetch(proxyUrl);
-                const text = await res.text();
-                viewer.textContent = text || "这天好像没有人发弹幕哦~";
+                viewer.textContent = await res.text();
             } catch (e) {
-                viewer.textContent = "啊哦，读取内容失败了。请检查网络或点击返回重试。";
+                viewer.textContent = "内容读取失败。";
             }
         }
 
-        loadMonths();
+        init();
     </script>
 </body>
 </html>
