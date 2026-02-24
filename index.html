@@ -6,37 +6,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         :root { --pink: #ff69b4; --light-pink: #fff0f6; --gray: #8c8c8c; }
-        body { font-family: -apple-system, sans-serif; background: #fdf2f5; margin: 0; padding: 15px; color: #333; }
+        body { font-family: -apple-system, sans-serif; background: #fdf2f5; margin: 0; padding: 15px; }
         .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 24px; padding: 25px; box-shadow: 0 8px 30px rgba(255,105,180,0.1); min-height: 85vh; }
         
-        /* 标题与搜索 */
-        .header { text-align: center; color: var(--pink); font-size: 1.6rem; font-weight: 800; margin-bottom: 25px; letter-spacing: 1px; }
-        .search-input { width: 100%; padding: 14px; border: 2px solid var(--light-pink); border-radius: 14px; margin-bottom: 20px; box-sizing: border-box; outline: none; transition: 0.3s; font-size: 1rem; }
-        .search-input:focus { border-color: var(--pink); background: var(--light-pink); }
+        .header { text-align: center; color: var(--pink); font-size: 1.5rem; font-weight: 800; margin-bottom: 20px; }
+        .search-input { width: 100%; padding: 12px; border: 2px solid var(--light-pink); border-radius: 12px; margin-bottom: 20px; box-sizing: border-box; outline: none; }
 
-        /* 年份分组标题 */
-        .year-title { display: flex; align-items: center; margin: 25px 0 15px; color: var(--pink); font-weight: bold; font-size: 1.1rem; }
-        .year-title::before { content: "📅"; margin-right: 8px; }
-        .year-title::after { content: ""; flex: 1; height: 2px; background: linear-gradient(to right, var(--light-pink), transparent); margin-left: 10px; }
+        .year-title { display: flex; align-items: center; margin: 20px 0 10px; color: var(--pink); font-weight: bold; font-size: 0.9rem; }
+        .year-title::after { content: ""; flex: 1; height: 1px; background: var(--light-pink); margin-left: 10px; }
 
-        /* 精简卡片样式 */
-        .card { display: flex; align-items: center; padding: 18px; background: #fff; border: 1px solid #f0f0f0; border-radius: 18px; cursor: pointer; transition: 0.2s; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
-        .card:hover { border-color: var(--pink); transform: translateY(-3px); box-shadow: 0 6px 15px rgba(255,105,180,0.15); }
-        .card-icon { font-size: 1.8rem; margin-right: 15px; }
-        .card-info { display: flex; flex-direction: column; }
-        .card-name { font-weight: 700; font-size: 1.1rem; color: #444; }
-        .card-sub { font-size: 0.8rem; color: var(--gray); margin-top: 4px; }
+        /* 卡片样式 */
+        .card { display: flex; align-items: center; padding: 15px; background: #fff; border: 1.1px solid #f0f0f0; border-radius: 15px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .card:hover { border-color: var(--pink); background: #fffafc; }
+        
+        .card-info { flex-grow: 1; display: flex; flex-direction: column; }
+        .card-name { font-weight: 700; color: #444; }
+        .card-sub { font-size: 0.75rem; color: var(--gray); margin-top: 2px; }
 
-        /* 内容查看区域 */
-        .btn-back { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer; font-weight: bold; }
-        #viewer { display: none; background: #262626; color: #e8e8e8; padding: 18px; border-radius: 16px; white-space: pre-wrap; margin-top: 15px; max-height: 55vh; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.9rem; line-height: 1.6; border: 1px solid #444; }
-        .loading { text-align: center; padding: 40px; color: var(--pink); font-style: italic; }
+        /* 下载按钮：独立于卡片点击 */
+        .btn-down { padding: 6px 12px; border-radius: 8px; background: #eee; color: #666; text-decoration: none; font-size: 0.75rem; font-weight: bold; transition: 0.2s; }
+        .btn-down:hover { background: var(--pink); color: white; }
+
+        .btn-back { background: #444; color: white; border: none; padding: 10px 20px; border-radius: 10px; margin-bottom: 15px; cursor: pointer; font-weight: bold; }
+        #viewer { display: none; background: #262626; color: #e8e8e8; padding: 15px; border-radius: 15px; white-space: pre-wrap; margin-top: 15px; max-height: 55vh; overflow-y: auto; font-family: monospace; font-size: 0.85rem; line-height: 1.6; }
+        .loading { text-align: center; padding: 40px; color: var(--pink); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">🌻 怪小葵的弹幕归档</div>
-        <input type="text" id="search" class="search-input" placeholder="🔍 快速定位年月或日期..." oninput="onSearch()">
+        <input type="text" id="search" class="search-input" placeholder="🔍 快速搜索..." oninput="onSearch()">
         <div id="content"></div>
         <pre id="viewer"></pre>
     </div>
@@ -46,95 +45,71 @@
         const content = document.getElementById('content');
         const viewer = document.getElementById('viewer');
         const searchInput = document.getElementById('search');
-        let homeData = []; 
-        let currentFiles = [];
-        let mode = 'home';
+        let homeData = [], currentFiles = [], mode = 'home';
 
         async function loadHome() {
-            mode = 'home';
-            viewer.style.display = 'none';
-            content.innerHTML = '<div class="loading">正在召唤归档列表...</div>';
+            mode = 'home'; viewer.style.display = 'none';
+            content.innerHTML = '<div class="loading">正在连接...</div>';
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
-                const data = await res.json();
-                homeData = data.filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
+                homeData = (await res.json()).filter(i => /^\d{4}-\d{2}$/.test(i.name)).reverse();
                 renderHome(homeData);
-            } catch (e) { content.innerHTML = '<div class="loading">读取失败，请检查网络后重试。</div>'; }
+            } catch (e) { content.innerHTML = '加载失败'; }
         }
 
         function renderHome(list) {
             let html = '', lastYear = '';
             list.forEach(item => {
                 const year = item.name.split('-')[0];
-                if (year !== lastYear) {
-                    html += `<div class="year-title">${year} 年</div>`;
-                    lastYear = year;
-                }
-                // 2. 删掉了名称里的“归档”
+                if (year !== lastYear) { html += `<div class="year-title">${year} 年</div>`; lastYear = year; }
                 html += `
                     <div class="card" onclick="loadMonth('${item.name}')">
-                        <div class="card-icon">📂</div>
-                        <div class="card-info">
-                            <span class="card-name">${item.name}</span>
-                            <span class="card-sub">查看本月弹幕记录</span>
-                        </div>
+                        <div class="card-info"><span class="card-name">${item.name}</span><span class="card-sub">点击进入</span></div>
+                        <span style="color:#ddd">➔</span>
                     </div>`;
             });
-            content.innerHTML = html || '<div class="loading">暂无记录</div>';
+            content.innerHTML = html;
         }
 
         async function loadMonth(m) {
             mode = 'files';
-            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button><div class="loading">整理 ${m} 记录中...</div>`;
+            content.innerHTML = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>`;
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/${m}`);
-                const data = await res.json();
-                currentFiles = data.filter(f => f.name.endsWith('.txt')).reverse();
+                currentFiles = (await res.json()).filter(f => f.name.endsWith('.txt')).reverse();
                 renderFiles(currentFiles, m);
-            } catch (e) { content.innerHTML = '读取月份内容失败'; }
+            } catch (e) { content.innerHTML = '读取失败'; }
         }
 
         function renderFiles(files, m) {
-            let html = `<button class="btn-back" onclick="loadHome()">⬅ 返回主页</button>`;
+            let html = `<button class="btn-back" onclick="loadHome()">⬅ 返回目录</button>`;
             files.forEach(f => {
+                const rawUrl = `https://mirror.ghproxy.com/https://raw.githubusercontent.com/${repo}/main/${m}/${f.name}`;
                 html += `
                     <div class="card" onclick="viewFile('${m}/${f.name}')">
-                        <div class="card-icon">📄</div>
                         <div class="card-info">
                             <span class="card-name">${f.name.replace('.txt','')}</span>
-                            <span class="card-sub">文本文件</span>
+                            <span class="card-sub">弹幕文本</span>
                         </div>
+                        <a href="${rawUrl}" download="${f.name}" class="btn-down" onclick="event.stopPropagation()">下载</a>
                     </div>`;
             });
             content.innerHTML = html;
+        }
+
+        async function viewFile(path) {
+            viewer.style.display = 'block'; viewer.innerText = '正在读取内容...';
+            try {
+                const res = await fetch(`https://jsd.cdn.zzko.cn/gh/${repo}@main/${path}`);
+                viewer.innerText = res.ok ? await res.text() : "读取失败";
+                window.scrollTo(0, viewer.offsetTop);
+            } catch (e) { viewer.innerText = "网络异常"; }
         }
 
         function onSearch() {
             const k = searchInput.value.toLowerCase();
             if (mode === 'home') renderHome(homeData.filter(i => i.name.includes(k)));
             else renderFiles(currentFiles.filter(f => f.name.includes(k)), "");
-        }
-
-        async function viewFile(path) {
-            viewer.style.display = 'block';
-            viewer.innerText = '✨ 正在全力读取中...';
-            // 采用多节点加速，确保不报403
-            const urls = [
-                `https://jsd.cdn.zzko.cn/gh/${repo}@main/${path}`,
-                `https://mirror.ghproxy.com/https://raw.githubusercontent.com/${repo}/main/${path}`
-            ];
-            
-            for (let url of urls) {
-                try {
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        viewer.innerText = await res.text();
-                        window.scrollTo(0, viewer.offsetTop);
-                        return;
-                    }
-                } catch (e) { continue; }
-            }
-            viewer.innerText = '内容读取失败。可能是网络波动，请稍后再试。';
         }
 
         loadHome();
